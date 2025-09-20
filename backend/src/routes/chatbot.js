@@ -99,7 +99,7 @@ router.post('/assessment/phq9', auth, [
 
     // Try to call ML service for prediction
     try {
-      const mlResponse = await axios.post('https://neuronet-1oj4.onrender.com/predict', responses);
+      const mlResponse = await axios.post('https://neuronet-1.onrender.com/predict', responses);
       if (mlResponse.data.severity) {
         assessment.severity = mlResponse.data.severity.toLowerCase();
         await assessment.save();
