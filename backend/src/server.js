@@ -60,7 +60,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/chatbot', async (req, res, next) => {
   if (req.method === 'POST') {
     try {
-      const mlServiceUrl = process.env.ML_SERVICE_URL || 'https://neuronet-1.onrender.com/predict';
+      const mlServiceUrl = process.env.ML_SERVICE_URL || 'https://neuronet-1oj4.onrender.com/predict';
       const response = await axios.post(mlServiceUrl, req.body);
       res.json(response.data);
     } catch (err) {
