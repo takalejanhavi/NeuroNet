@@ -6,22 +6,24 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config(); // Load .env variables
+const axios = require('axios');
 
-// Import routes (ensure these files exist)
+// -----------------------------
+// Import routes
+// -----------------------------
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
-//const appointmentRoutes = require('./routes/appointments');
-//const forumRoutes = require('./routes/forum');
-//const resourceRoutes = require('./routes/resources');
 const chatbotRoutes = require('./routes/chatbot');
-//const adminRoutes = require('./routes/admin');
 
+// -----------------------------
+// Initialize app
+// -----------------------------
 const app = express();
 
 // -----------------------------
 // Security & Middleware
 // -----------------------------
-app.use(helmet()); // Security headers
+app.use(helmet()); // Secure headers
 app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:5173',
   credentials: true
@@ -30,7 +32,7 @@ app.use(cors({
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP
+  max: 100 // limit per IP
 });
 app.use(limiter);
 
@@ -41,7 +43,7 @@ app.use(express.urlencoded({ extended: true }));
 // -----------------------------
 // Database Connection
 // -----------------------------
-mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://janhavit:database@mernecom.igrid.mongodb.net/mental-health-app?retryWrites=true&w=majority', {
+mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
@@ -53,35 +55,53 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://janhavit:database@mer
 // -----------------------------
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-//app.use('/api/appointments', appointmentRoutes);
-//app.use('/api/forum', forumRoutes);
-//app.use('/api/resources', resourceRoutes);
-app.use('/api/chatbot', chatbotRoutes);
-//app.use('/api/admin', adminRoutes);
 
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+// Chatbot route: forwards requests to Python ML service
+app.use('/api/chatbot', async (req, res, next) => {
+  if (req.method === 'POST') {
+    try {
+      const mlServiceUrl = process.env.ML_SERVICE_URL || 'http://localhost:5001/predict';
+      const response = await axios.post(mlServiceUrl, req.body);
+      res.json(response.data);
+    } catch (err) {
+      next(err);
+    }
+  } else {
+    res.status(405).json({ message: 'Method not allowed' });
+  }
 });
 
 // -----------------------------
-// Error handling
+// Health check
 // -----------------------------
-app.use((error, req, res, next) => {
-  console.error(error.stack);
-  res.status(500).json({
-    message: 'Something went wrong!',
-    error: process.env.NODE_ENV === 'production' ? {} : error.message
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    backend: 'Node.js/Express',
   });
 });
 
+// -----------------------------
 // 404 handler
+// -----------------------------
 app.use('*', (req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
 // -----------------------------
-// Start Server
+// Error handling
+// -----------------------------
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({
+    message: 'Something went wrong!',
+    error: process.env.NODE_ENV === 'production' ? {} : err.message
+  });
+});
+
+// -----------------------------
+// Start server
 // -----------------------------
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
